@@ -14,10 +14,15 @@ const Navbar = () => {
         <div className="flex items-center justify-between h-full">
           <div className="flex items-center gap-8">
             <Link to="/" className="flex items-center gap-2.5 hover:opacity-80 transition-all">
-              <div className="size-9 rounded-lg bg-primary/10 flex items-center justify-center">
-                <MessageSquare className="w-5 h-5 text-primary" />
+              <div className="size-9 rounded-lg bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-lg">
+                <MessageSquare className="w-5 h-5 text-white" />
               </div>
-              <h1 className="text-lg font-bold">Chatty</h1>
+              <div className="flex flex-col">
+                <h1 className="text-lg font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent">
+                  ZA Chat
+                </h1>
+                <p className="text-xs text-base-content/60 -mt-1">by Zaid Akbar</p>
+              </div>
             </Link>
           </div>
 

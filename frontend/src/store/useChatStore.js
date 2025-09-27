@@ -2,6 +2,7 @@ import { create } from "zustand";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
 import { useAuthStore } from "./useAuthStore";
+import { handleError, safeAsync, withRetry } from "../lib/errorHandler";
 
 export const useChatStore = create((set, get) => ({
   messages: [],
@@ -13,10 +14,10 @@ export const useChatStore = create((set, get) => ({
   getUsers: async () => {
     set({ isUsersLoading: true });
     try {
-      const res = await axiosInstance.get("/messages/users");
+      const res = await withRetry(() => axiosInstance.get("/messages/users"));
       set({ users: res.data });
     } catch (error) {
-      toast.error(error.response.data.message);
+      handleError(error, "Failed to load contacts");
     } finally {
       set({ isUsersLoading: false });
     }
@@ -25,21 +26,29 @@ export const useChatStore = create((set, get) => ({
   getMessages: async (userId) => {
     set({ isMessagesLoading: true });
     try {
-      const res = await axiosInstance.get(`/messages/${userId}`);
+      const res = await withRetry(() => axiosInstance.get(`/messages/${userId}`));
       set({ messages: res.data });
     } catch (error) {
-      toast.error(error.response.data.message);
+      handleError(error, "Failed to load messages");
     } finally {
       set({ isMessagesLoading: false });
     }
   },
   sendMessage: async (messageData) => {
     const { selectedUser, messages } = get();
+    if (!selectedUser) {
+      handleError(new Error("No user selected"), "Please select a contact to send a message");
+      return;
+    }
+    
     try {
-      const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
+      const res = await safeAsync(() => 
+        axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData)
+      );
       set({ messages: [...messages, res.data] });
     } catch (error) {
-      toast.error(error.response.data.message);
+      // Error already handled by safeAsync
+      throw error; // Re-throw to allow UI to handle it
     }
   },
 

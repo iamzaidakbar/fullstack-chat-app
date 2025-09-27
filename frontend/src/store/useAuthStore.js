@@ -2,8 +2,10 @@ import { create } from "zustand";
 import { axiosInstance } from "../lib/axios.js";
 import toast from "react-hot-toast";
 import { io } from "socket.io-client";
+import { handleError, safeAsync, withRetry } from "../lib/errorHandler";
 
-const BASE_URL = import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
+const BASE_URL =
+  import.meta.env.MODE === "development" ? "http://localhost:5001" : "/";
 
 export const useAuthStore = create((set, get) => ({
   authUser: null,
@@ -15,13 +17,13 @@ export const useAuthStore = create((set, get) => ({
   socket: null,
 
   checkAuth: async () => {
+    set({ isCheckingAuth: true });
     try {
-      const res = await axiosInstance.get("/auth/check");
-
+      const res = await withRetry(() => axiosInstance.get("/auth/check"));
       set({ authUser: res.data });
       get().connectSocket();
     } catch (error) {
-      console.log("Error in checkAuth:", error);
+      handleError(error, "Failed to verify authentication");
       set({ authUser: null });
     } finally {
       set({ isCheckingAuth: false });
@@ -31,12 +33,14 @@ export const useAuthStore = create((set, get) => ({
   signup: async (data) => {
     set({ isSigningUp: true });
     try {
-      const res = await axiosInstance.post("/auth/signup", data);
+      const res = await safeAsync(() =>
+        axiosInstance.post("/auth/signup", data)
+      );
       set({ authUser: res.data });
-      toast.success("Account created successfully");
+      toast.success("Account created successfully! Welcome to ZA Chat!");
       get().connectSocket();
-    } catch (error) {
-      toast.error(error.response.data.message);
+    } catch {
+      // Error already handled by safeAsync
     } finally {
       set({ isSigningUp: false });
     }
@@ -45,13 +49,15 @@ export const useAuthStore = create((set, get) => ({
   login: async (data) => {
     set({ isLoggingIn: true });
     try {
-      const res = await axiosInstance.post("/auth/login", data);
+      const res = await safeAsync(() =>
+        axiosInstance.post("/auth/login", data)
+      );
       set({ authUser: res.data });
-      toast.success("Logged in successfully");
+      toast.success("Welcome back to ZA Chat!");
 
       get().connectSocket();
-    } catch (error) {
-      toast.error(error.response.data.message);
+    } catch {
+      // Error already handled by safeAsync
     } finally {
       set({ isLoggingIn: false });
     }
@@ -59,24 +65,28 @@ export const useAuthStore = create((set, get) => ({
 
   logout: async () => {
     try {
-      await axiosInstance.post("/auth/logout");
+      await safeAsync(() => axiosInstance.post("/auth/logout"));
       set({ authUser: null });
       toast.success("Logged out successfully");
       get().disconnectSocket();
-    } catch (error) {
-      toast.error(error.response.data.message);
+    } catch {
+      // Even if logout fails on server, clear local state
+      set({ authUser: null });
+      get().disconnectSocket();
+      toast.success("Logged out successfully");
     }
   },
 
   updateProfile: async (data) => {
     set({ isUpdatingProfile: true });
     try {
-      const res = await axiosInstance.put("/auth/update-profile", data);
+      const res = await safeAsync(() =>
+        axiosInstance.put("/auth/update-profile", data)
+      );
       set({ authUser: res.data });
       toast.success("Profile updated successfully");
-    } catch (error) {
-      console.log("error in update profile:", error);
-      toast.error(error.response.data.message);
+    } catch {
+      // Error already handled by safeAsync
     } finally {
       set({ isUpdatingProfile: false });
     }
